@@ -1,0 +1,37 @@
+{
+  "root": true,
+  "parserOptions": {
+    "sourceType": "module"
+  },
+  "ignorePatterns": ["dist"],
+  "overrides": [
+    {
+      "files": ["*.ts"],
+      "parserOptions": {
+        "project": ["tsconfig.json"]
+      },
+      "extends": [
+        "eslint:recommended",
+        "plugin:prettier/recommended",
+        "plugin:@typescript-eslint/recommended"
+      ],
+      "rules": {
+        "prettier/prettier": [
+          "error",
+          {
+            "endOfLine": "auto"
+          }
+        ],
+        "@typescript-eslint/no-unused-vars": [
+          "error",
+          { "destructuredArrayIgnorePattern": "^_" }
+        ]
+      },
+      "env": {
+        "browser": false,
+        "node": true,
+        "es6": true
+      }
+    }
+  ]
+}
