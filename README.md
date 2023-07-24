@@ -1,2 +1,2 @@
 # graphology-observable
-RxJS Wrapper for Graphology
+RxJS-based reactive wrapper for Graphology.
