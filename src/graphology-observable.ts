@@ -27,7 +27,7 @@ class GraphRx {
   ];
 
   private eventStreams = this.events.reduce(
-    (streams, event) => ({ ...streams, event: new Subject<Parameters<GraphEvents[typeof event]>>() }),
+    (streams, event) => ({ ...streams, [event]: new Subject<Parameters<GraphEvents[typeof event]>>() }),
     {} as { [Event in keyof GraphEvents]: Subject<Parameters<GraphEvents[Event]>> }
   );
 
