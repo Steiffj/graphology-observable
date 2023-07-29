@@ -9,6 +9,79 @@ const objectKeys = <T extends object>(obj: T): (keyof T)[] => {
   return Object.keys(obj) as (keyof T)[];
 };
 
+/**
+ * Internal type to improve `eventStreams` initalization readabiliy.
+ */
+type GraphEventStreams = { [Event in keyof GraphEvents]: Subject<Parameters<GraphEvents[Event]>> };
+
+const getAttributesApi = (graph: Graph) => ({
+  getAttribute: <T>(attribute: keyof Attributes) => graph.getAttribute(attribute) as T,
+  getAttributes: <T extends ReturnType<Graph['getAttributes']> = ReturnType<Graph['getAttributes']>>(
+    attribute: keyof Attributes
+  ) => graph.getAttribute(attribute) as T,
+  hasAttribute: (attribute: string | number) => graph.hasAttribute(attribute),
+  setAttribute: <T = keyof Attributes>(attribute: string | number, value: T) => graph.setAttribute(attribute, value),
+  updateAttribute: <T>(attribute: string | number, updater: (value: T) => T) =>
+    graph.updateAttribute(attribute, updater),
+  removeAttribute: (attribute: string | number) => graph.removeAttribute(attribute),
+  replaceAttributes: <T extends Attributes = Attributes>(attributes: T) => graph.replaceAttributes(attributes),
+  mergeAttributes: <T extends Attributes = Attributes>(attributes: Partial<T>) => graph.mergeAttributes(attributes),
+  updateAttributes: <T extends Attributes = Attributes>(updater: (attributes: Attributes) => T) => {
+    graph.updateAttributes(updater);
+  }
+});
+
+const getNodeAttributesApi = (nodeKey: string, graph: Graph) => ({
+  key: nodeKey,
+  getAttribute: <T>(attribute: keyof Attributes) => graph.getNodeAttribute(nodeKey, attribute) as T,
+  getAttributes: <T>() => ({ ...graph.getNodeAttributes(nodeKey) }) as T,
+  hasAttribute: (attribute: keyof Attributes) => graph.hasNodeAttribute(nodeKey, attribute),
+  setAttribute: <T extends keyof Attributes = keyof Attributes>(attribute: keyof Attributes, value: T) =>
+    graph.setNodeAttribute(nodeKey, attribute, value),
+  updateAttribute: <T>(attribute: string | number, updater: (value: T) => T) => {
+    graph.updateNodeAttribute(nodeKey, attribute, updater);
+  },
+  removeAttribute: (attribute: string | number) => {
+    graph.removeNodeAttribute(nodeKey, attribute);
+  },
+  replaceAttribute: (attributes: Attributes) => {
+    graph.replaceNodeAttributes(nodeKey, attributes);
+  },
+  mergeAttributes: <T extends Attributes = Attributes>(attributes: Partial<T>) => {
+    graph.mergeNodeAttributes(nodeKey, attributes);
+  },
+  updateAttributes: (updater: (attributes: Attributes) => Attributes) => {
+    graph.updateNodeAttributes(nodeKey, updater);
+  }
+});
+
+const getEdgeAttributesApi = (edgeKey: string, graph: Graph) => ({
+  key: edgeKey,
+  source: graph.source(edgeKey),
+  target: graph.target(edgeKey),
+  undirected: graph.isUndirected(edgeKey),
+  getAttribute: <T>(attribute: keyof Attributes) => graph.getEdgeAttribute(edgeKey, attribute) as T,
+  getAttributes: <T>() => ({ ...graph.getEdgeAttributes(edgeKey) }) as T,
+  hasAttribute: (attribute: keyof Attributes) => graph.hasEdgeAttribute(edgeKey, attribute),
+  setAttribute: <T extends keyof Attributes = keyof Attributes>(attribute: keyof Attributes, value: T) =>
+    graph.setEdgeAttribute(edgeKey, attribute, value),
+  updateAttribute: <T>(attribute: string | number, updater: (value: T) => T) => {
+    graph.updateEdgeAttribute(edgeKey, attribute, updater);
+  },
+  removeAttribute: (attribute: string | number) => {
+    graph.removeEdgeAttribute(edgeKey, attribute);
+  },
+  replaceAttribute: (attributes: Attributes) => {
+    graph.replaceEdgeAttributes(edgeKey, attributes);
+  },
+  mergeAttributes: (attributes: Attributes) => {
+    graph.mergeEdgeAttributes(edgeKey, attributes);
+  },
+  updateAttributes: (updater: (attributes: Attributes) => Attributes) => {
+    graph.updateEdgeAttributes(edgeKey, updater);
+  }
+});
+
 class GraphRx {
   private graph$ = new Subject<Graph>();
 
@@ -26,9 +99,9 @@ class GraphRx {
     'eachEdgeAttributesUpdated'
   ];
 
-  private eventStreams = this.events.reduce(
+  private eventStreams: GraphEventStreams = this.events.reduce(
     (streams, event) => ({ ...streams, [event]: new Subject<Parameters<GraphEvents[typeof event]>>() }),
-    {} as { [Event in keyof GraphEvents]: Subject<Parameters<GraphEvents[Event]>> }
+    {} as GraphEventStreams
   );
 
   private eventListeners: { [Event in keyof GraphEvents]: (...payload: Parameters<GraphEvents[Event]>) => void } = {
@@ -80,43 +153,8 @@ class GraphRx {
   graphAttributes() {
     return this.eventStreams['attributesUpdated'].pipe(
       withLatestFrom(this.graph$),
-      map(([_, graph]) => ({
-        getAttribute: <T>(attribute: keyof Attributes) => graph.getAttribute(attribute) as T,
-        getAttributes: <T extends ReturnType<Graph['getAttributes']> = ReturnType<Graph['getAttributes']>>(
-          attribute: keyof Attributes
-        ) => graph.getAttribute(attribute) as T,
-        hasAttribute: (attribute: string | number) => graph.hasAttribute(attribute),
-        setAttribute: <T = keyof Attributes>(attribute: string | number, value: T) =>
-          graph.setAttribute(attribute, value),
-        updateAttribute: <T>(attribute: string | number, updater: (value: T) => T) =>
-          graph.updateAttribute(attribute, updater),
-        removeAttribute: (attribute: string | number) => graph.removeAttribute(attribute),
-        replaceAttributes: <T extends Attributes = Attributes>(attributes: T) => graph.replaceAttributes(attributes),
-        mergeAttributes: <T extends Attributes = Attributes>(attributes: Partial<T>) =>
-          graph.mergeAttributes(attributes),
-        updateAttributes: <T extends Attributes = Attributes>(updater: (attributes: Attributes) => T) => {
-          graph.updateAttributes(updater);
-        }
-      })),
-      startWith({
-        getAttribute: <T>(attribute: keyof Attributes) => this.graph.getAttribute(attribute) as T,
-        getAttributes: <T extends ReturnType<Graph['getAttributes']> = ReturnType<Graph['getAttributes']>>(
-          attribute: keyof Attributes
-        ) => this.graph.getAttribute(attribute) as T,
-        hasAttribute: (attribute: string | number) => this.graph.hasAttribute(attribute),
-        setAttribute: <T = keyof Attributes>(attribute: string | number, value: T) =>
-          this.graph.setAttribute(attribute, value),
-        updateAttribute: <T>(attribute: string | number, updater: (value: T) => T) =>
-          this.graph.updateAttribute(attribute, updater),
-        removeAttribute: (attribute: string | number) => this.graph.removeAttribute(attribute),
-        replaceAttributes: <T extends Attributes = Attributes>(attributes: T) =>
-          this.graph.replaceAttributes(attributes),
-        mergeAttributes: <T extends Attributes = Attributes>(attributes: Partial<T>) =>
-          this.graph.mergeAttributes(attributes),
-        updateAttributes: <T extends Attributes = Attributes>(updater: (attributes: Attributes) => T) => {
-          this.graph.updateAttributes(updater);
-        }
-      })
+      map(([_, graph]) => getAttributesApi(graph)),
+      startWith(getAttributesApi(this.graph))
     );
   }
 
@@ -124,52 +162,8 @@ class GraphRx {
     return this.eventStreams['nodeAttributesUpdated'].pipe(
       filter(([{ key }]) => key === nodeKey),
       withLatestFrom(this.graph$),
-      map(([_, graph]) => ({
-        key: nodeKey,
-        getAttribute: <T>(attribute: keyof Attributes) => graph.getNodeAttribute(nodeKey, attribute) as T,
-        getAttributes: <T>() => ({ ...graph.getNodeAttributes(nodeKey) }) as T,
-        hasAttribute: (attribute: keyof Attributes) => graph.hasNodeAttribute(nodeKey, attribute),
-        setAttribute: <T extends keyof Attributes = keyof Attributes>(attribute: keyof Attributes, value: T) =>
-          graph.setNodeAttribute(nodeKey, attribute, value),
-        updateAttribute: <T>(attribute: string | number, updater: (value: T) => T) => {
-          graph.updateNodeAttribute(nodeKey, attribute, updater);
-        },
-        removeAttribute: (attribute: string | number) => {
-          graph.removeNodeAttribute(nodeKey, attribute);
-        },
-        replaceAttribute: (attributes: Attributes) => {
-          graph.replaceNodeAttributes(nodeKey, attributes);
-        },
-        mergeAttributes: <T extends Attributes = Attributes>(attributes: Partial<T>) => {
-          graph.mergeNodeAttributes(nodeKey, attributes);
-        },
-        updateAttributes: (updater: (attributes: Attributes) => Attributes) => {
-          graph.updateNodeAttributes(nodeKey, updater);
-        }
-      })),
-      startWith({
-        key: nodeKey,
-        getAttribute: <T>(attribute: keyof Attributes) => this.graph.getNodeAttribute(nodeKey, attribute) as T,
-        getAttributes: <T>() => ({ ...this.graph.getNodeAttributes(nodeKey) }) as T,
-        hasAttribute: (attribute: keyof Attributes) => this.graph.hasNodeAttribute(nodeKey, attribute),
-        setAttribute: <T extends keyof Attributes = keyof Attributes>(attribute: keyof Attributes, value: T) =>
-          this.graph.setNodeAttribute(nodeKey, attribute, value),
-        updateAttribute: <T>(attribute: string | number, updater: (value: T) => T) => {
-          this.graph.updateNodeAttribute(nodeKey, attribute, updater);
-        },
-        removeAttribute: (attribute: string | number) => {
-          this.graph.removeNodeAttribute(nodeKey, attribute);
-        },
-        replaceAttribute: (attributes: Attributes) => {
-          this.graph.replaceNodeAttributes(nodeKey, attributes);
-        },
-        mergeAttributes: <T extends Attributes = Attributes>(attributes: Partial<T>) => {
-          this.graph.mergeNodeAttributes(nodeKey, attributes);
-        },
-        updateAttributes: (updater: (attributes: Attributes) => Attributes) => {
-          this.graph.updateNodeAttributes(nodeKey, updater);
-        }
-      }),
+      map(([_, graph]) => getNodeAttributesApi(nodeKey, graph)),
+      startWith(getNodeAttributesApi(nodeKey, this.graph)),
       takeUntil(
         merge(
           this.eventStreams['cleared'],
@@ -183,58 +177,8 @@ class GraphRx {
     return this.eventStreams['edgeAttributesUpdated'].pipe(
       filter(([{ key }]) => key === edgeKey),
       withLatestFrom(this.graph$),
-      map(([_, graph]) => ({
-        key: edgeKey,
-        source: graph.source(edgeKey),
-        target: graph.target(edgeKey),
-        undirected: graph.isUndirected(edgeKey),
-        getAttribute: <T>(attribute: keyof Attributes) => graph.getEdgeAttribute(edgeKey, attribute) as T,
-        getAttributes: <T>() => ({ ...graph.getEdgeAttributes(edgeKey) }) as T,
-        hasAttribute: (attribute: keyof Attributes) => graph.hasEdgeAttribute(edgeKey, attribute),
-        setAttribute: <T extends keyof Attributes = keyof Attributes>(attribute: keyof Attributes, value: T) =>
-          graph.setEdgeAttribute(edgeKey, attribute, value),
-        updateAttribute: <T>(attribute: string | number, updater: (value: T) => T) => {
-          graph.updateEdgeAttribute(edgeKey, attribute, updater);
-        },
-        removeAttribute: (attribute: string | number) => {
-          graph.removeEdgeAttribute(edgeKey, attribute);
-        },
-        replaceAttribute: (attributes: Attributes) => {
-          graph.replaceEdgeAttributes(edgeKey, attributes);
-        },
-        mergeAttributes: (attributes: Attributes) => {
-          graph.mergeEdgeAttributes(edgeKey, attributes);
-        },
-        updateAttributes: (updater: (attributes: Attributes) => Attributes) => {
-          graph.updateEdgeAttributes(edgeKey, updater);
-        }
-      })),
-      startWith({
-        key: edgeKey,
-        source: this.graph.source(edgeKey),
-        target: this.graph.target(edgeKey),
-        undirected: this.graph.isUndirected(edgeKey),
-        getAttribute: <T>(attribute: keyof Attributes) => this.graph.getEdgeAttribute(edgeKey, attribute) as T,
-        getAttributes: <T>() => ({ ...this.graph.getEdgeAttributes(edgeKey) }) as T,
-        hasAttribute: (attribute: keyof Attributes) => this.graph.hasEdgeAttribute(edgeKey, attribute),
-        setAttribute: <T extends keyof Attributes = keyof Attributes>(attribute: keyof Attributes, value: T) =>
-          this.graph.setEdgeAttribute(edgeKey, attribute, value),
-        updateAttribute: <T>(attribute: string | number, updater: (value: T) => T) => {
-          this.graph.updateEdgeAttribute(edgeKey, attribute, updater);
-        },
-        removeAttribute: (attribute: string | number) => {
-          this.graph.removeEdgeAttribute(edgeKey, attribute);
-        },
-        replaceAttribute: (attributes: Attributes) => {
-          this.graph.replaceEdgeAttributes(edgeKey, attributes);
-        },
-        mergeAttributes: (attributes: Attributes) => {
-          this.graph.mergeEdgeAttributes(edgeKey, attributes);
-        },
-        updateAttributes: (updater: (attributes: Attributes) => Attributes) => {
-          this.graph.updateEdgeAttributes(edgeKey, updater);
-        }
-      }),
+      map(([_, graph]) => getEdgeAttributesApi(edgeKey, graph)),
+      startWith(getEdgeAttributesApi(edgeKey, this.graph)),
       takeUntil(
         merge(
           this.eventStreams['cleared'],
