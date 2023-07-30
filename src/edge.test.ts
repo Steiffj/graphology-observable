@@ -55,7 +55,8 @@ describe('#edge()', () => {
         expect(edgeRx.key).toEqual('e');
         expect(edgeRx.source()).toEqual('s');
         expect(edgeRx.target()).toEqual('t');
-        expect(edgeRx.undirected()).toEqual(graph.isUndirected('e'));
+        expect(edgeRx.isUndirected()).toEqual(graph.isUndirected('e'));
+        expect(edgeRx.isDirected()).toEqual(graph.isDirected('e'));
         expect(edgeRx.getAttribute('attr')).toEqual('val');
         expect(edgeRx.getAttribute('hasAttributes')).toEqual(true);
         expect(edgeRx.getAttributes()).toEqual(expectedAttrs);
