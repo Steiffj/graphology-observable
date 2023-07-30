@@ -43,7 +43,7 @@ const getNodeAttributesApi = (nodeKey: string, graph: Graph) => ({
   removeAttribute: (attribute: string | number) => {
     graph.removeNodeAttribute(nodeKey, attribute);
   },
-  replaceAttribute: (attributes: Attributes) => {
+  replaceAttributes: (attributes: Attributes) => {
     graph.replaceNodeAttributes(nodeKey, attributes);
   },
   mergeAttributes: <T extends Attributes = Attributes>(attributes: Partial<T>) => {
@@ -56,9 +56,9 @@ const getNodeAttributesApi = (nodeKey: string, graph: Graph) => ({
 
 const getEdgeAttributesApi = (edgeKey: string, graph: Graph) => ({
   key: edgeKey,
-  source: graph.source(edgeKey),
-  target: graph.target(edgeKey),
-  undirected: graph.isUndirected(edgeKey),
+  source: () => graph.source(edgeKey),
+  target: () => graph.target(edgeKey),
+  undirected: () => graph.isUndirected(edgeKey),
   getAttribute: <T>(attribute: keyof Attributes) => graph.getEdgeAttribute(edgeKey, attribute) as T,
   getAttributes: <T>() => ({ ...graph.getEdgeAttributes(edgeKey) }) as T,
   hasAttribute: (attribute: keyof Attributes) => graph.hasEdgeAttribute(edgeKey, attribute),
@@ -70,7 +70,7 @@ const getEdgeAttributesApi = (edgeKey: string, graph: Graph) => ({
   removeAttribute: (attribute: string | number) => {
     graph.removeEdgeAttribute(edgeKey, attribute);
   },
-  replaceAttribute: (attributes: Attributes) => {
+  replaceAttributes: (attributes: Attributes) => {
     graph.replaceEdgeAttributes(edgeKey, attributes);
   },
   mergeAttributes: (attributes: Attributes) => {
@@ -199,8 +199,7 @@ class GraphRx {
   node(nodeKey: string) {
     return this.eventStreams['nodeAttributesUpdated'].pipe(
       filter(([{ key }]) => key === nodeKey),
-      withLatestFrom(this.graph$),
-      map(([_, graph]) => getNodeAttributesApi(nodeKey, graph)),
+      map(() => getNodeAttributesApi(nodeKey, this.graph)),
       startWith(getNodeAttributesApi(nodeKey, this.graph)),
       takeUntil(
         merge(
@@ -214,8 +213,7 @@ class GraphRx {
   edge(edgeKey: string) {
     return this.eventStreams['edgeAttributesUpdated'].pipe(
       filter(([{ key }]) => key === edgeKey),
-      withLatestFrom(this.graph$),
-      map(([_, graph]) => getEdgeAttributesApi(edgeKey, graph)),
+      map(() => getEdgeAttributesApi(edgeKey, this.graph)),
       startWith(getEdgeAttributesApi(edgeKey, this.graph)),
       takeUntil(
         merge(
