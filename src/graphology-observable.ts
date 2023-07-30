@@ -8,7 +8,6 @@ import { Observable, Subject, filter, map, merge, startWith, take, takeUntil, wi
 const objectKeys = <T extends object>(obj: T): (keyof T)[] => {
   return Object.keys(obj) as (keyof T)[];
 };
-
 /**
  * Internal type to improve `eventStreams` initialization readability.
  */
@@ -82,6 +81,9 @@ const getEdgeAttributesApi = (edgeKey: string, graph: Graph) => ({
   }
 });
 
+/**
+ * RxJS-based reactive wrapper around Graphology's Graph object specification.
+ */
 class GraphRx {
   private _isClosed = false;
   get isClosed() {
@@ -121,9 +123,15 @@ class GraphRx {
     eachNodeAttributesUpdated: payload => this.eventStreams['eachNodeAttributesUpdated'].next([payload]),
     eachEdgeAttributesUpdated: payload => this.eventStreams['eachEdgeAttributesUpdated'].next([payload])
   };
-
+  /**
+   * Event listener function responsible for emitting values to the `graph$` stream
+   * when any `Graph` event emitter fires.
+   */
   private graphEmitListener = () => this.graph$.next(this.graph);
-
+  /**
+   * Initialize a new reactive Graph.
+   * @param graph `Graph` object to wrap
+   */
   constructor(public readonly graph: Graph) {
     this.graph$ = new Subject<Graph>();
     this.graph$.next(this.graph);
@@ -133,26 +141,47 @@ class GraphRx {
       this.graph.on(event, this.graphEmitListener);
     });
   }
-
+  /**
+   * Get the underlying `Graph` object as a stream that emits based on graph mutations.
+   *
+   * Warning: this will emit a new value whenever any of the native `Graph` events are fired!
+   * Consider filtering the stream with `filter`, `throttle`, etc. or disable specific event listeners via `GraphRx.off`
+   *
+   * Note: this observable return the same object reference each time it emits. If your use case requires object
+   * immutability, you can `map` the output to an object containing the graph.
+   *
+   * @see off
+   */
   stream(): Observable<Graph> {
     return this.graph$;
   }
-
+  /**
+   * Enable internal listeners for a given `Graph` event.
+   *
+   * @param event `Graph` event name
+   */
   on(event: keyof GraphEvents) {
     if (!this.graph.listeners(event).includes(this.eventListeners[event])) {
       this.graph.on(event, this.eventListeners[event]);
       this.graph.on(event, this.graphEmitListener);
     }
   }
-
+  /**
+   * Disable internal listeners for a given `Graph` event.
+   *
+   * @param event `Graph` event name
+   */
   off(event: keyof GraphEvents) {
     this.graph.off(event, this.eventListeners[event]);
     this.graph.off(event, this.graphEmitListener);
   }
-
+  /**
+   * Complete all internal observables and remove event listeners from the underlying `Graph`.
+   */
   complete() {
     objectKeys(this.eventListeners).forEach(event => {
       this.graph.off(event, this.eventListeners[event]);
+      this.graph.off(event, this.graphEmitListener);
     });
     Object.values(this.eventStreams).forEach(stream => stream.complete());
     this.graph$.complete();
