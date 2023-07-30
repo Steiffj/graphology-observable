@@ -10,7 +10,7 @@ const objectKeys = <T extends object>(obj: T): (keyof T)[] => {
 };
 
 /**
- * Internal type to improve `eventStreams` initalization readabiliy.
+ * Internal type to improve `eventStreams` initialization readability.
  */
 type GraphEventStreams = { [Event in keyof GraphEvents]: Subject<Parameters<GraphEvents[Event]>> };
 
@@ -83,7 +83,11 @@ const getEdgeAttributesApi = (edgeKey: string, graph: Graph) => ({
 });
 
 class GraphRx {
-  private graph$ = new Subject<Graph>();
+  private _isClosed = false;
+  get isClosed() {
+    return this._isClosed;
+  }
+  private graph$: Subject<Graph>;
 
   readonly events: (keyof GraphEvents)[] = [
     'nodeAdded',
@@ -118,14 +122,15 @@ class GraphRx {
     eachEdgeAttributesUpdated: payload => this.eventStreams['eachEdgeAttributesUpdated'].next([payload])
   };
 
+  private graphEmitListener = () => this.graph$.next(this.graph);
+
   constructor(public readonly graph: Graph) {
+    this.graph$ = new Subject<Graph>();
     this.graph$.next(this.graph);
 
     this.events.forEach(event => {
-      this.graph.on(event, () => {
-        this.graph$.next(this.graph);
-        this.graph.on(event, this.eventListeners[event]);
-      });
+      this.graph.on(event, this.eventListeners[event]);
+      this.graph.on(event, this.graphEmitListener);
     });
   }
 
@@ -136,11 +141,13 @@ class GraphRx {
   on(event: keyof GraphEvents) {
     if (!this.graph.listeners(event).includes(this.eventListeners[event])) {
       this.graph.on(event, this.eventListeners[event]);
+      this.graph.on(event, this.graphEmitListener);
     }
   }
 
   off(event: keyof GraphEvents) {
     this.graph.off(event, this.eventListeners[event]);
+    this.graph.off(event, this.graphEmitListener);
   }
 
   complete() {
@@ -148,6 +155,8 @@ class GraphRx {
       this.graph.off(event, this.eventListeners[event]);
     });
     Object.values(this.eventStreams).forEach(stream => stream.complete());
+    this.graph$.complete();
+    this._isClosed = true;
   }
 
   graphAttributes() {
@@ -182,6 +191,7 @@ class GraphRx {
       takeUntil(
         merge(
           this.eventStreams['cleared'],
+          this.eventStreams['edgesCleared'],
           this.eventStreams['edgeDropped'].pipe(filter(([{ key }]) => key === edgeKey))
         ).pipe(take(1))
       )
