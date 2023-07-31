@@ -4,3 +4,5 @@ src
 .prettierrc.json
 tsconfig.json
 *.tgz
+babel.config.js
+jest.config.js
