@@ -1,6 +1,6 @@
 {
   "name": "graphology-observable",
-  "version": "0.0.2",
+  "version": "0.0.2-alpha",
   "description": "RxJS wrapper for Graphology.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
